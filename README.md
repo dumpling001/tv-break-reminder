@@ -30,7 +30,7 @@
 ## 从零复现的流程
 
 1. **盒子**：设置→通用→"安装未知应用"确认可用；设置→关于，连续点"版本号"7 次进入开发者模式；打开"USB 调试"；在网络设置里查盒子 IP（建议在路由器里给盒子固定 IP）。
-2. **Mac**：装 Android Studio；`adb` 在 `~/Library/Android/sdk/platform-tools/`。终端运行 `adb connect <盒子IP>:5555`，显示 `connected` 即可（盒子上可能弹出授权，选"始终允许"）。
+2. **Mac**：装 Android Studio；`adb` 在 `~/Library/Android/sdk/platform-tools/`，先加进 PATH：`echo 'export PATH=$PATH:~/Library/Android/sdk/platform-tools' >> ~/.zshrc`，再运行 `source ~/.zshrc`（只在当前窗口运行 `export` 的话，新开的终端窗口就失效了）。终端运行 `adb connect <盒子IP>:5555`，显示 `connected` 即可（盒子上可能弹出授权，选"始终允许"）。
 3. **项目**：新建 Empty Activity，名称 TVBreak，最低 API 23（新版没有 Language 选项，默认 Kotlin）。
 4. **App 逻辑**（MainActivity）：全屏 `VideoView` 循环播放 `res/raw/rest_all.mp4`；遥控器确认键按 3 次退出；屏蔽返回键；`LoudnessEnhancer` 增强音量（盒子上是否生效未确认）；视频出错或缺失时"嘀"一声。
 5. **Manifest**：activity 的主题设为 `@android:style/Theme.Black.NoTitleBar.Fullscreen`（避免白屏）；加 `LEANBACK_LAUNCHER` 分类。早期的悬浮窗方案（OverlayService 和相关权限）已废弃，可删除。
@@ -68,8 +68,10 @@ Mac 上运行的小程序，只用 Python 3 标准库，同时做三件事：给
 
 | 现象 | 原因 | 解决 |
 |---|---|---|
-| 客服说盒子没有开发者选项 | 客服不了解，其实被隐藏 | "版本号"连点 7 次 |
-| 开发者选项里没有"网络调试"开关 | 厂商没放出开关 | `adb connect IP:5555` 仍然能连上 |
+| 客服说盒子没有开发者选项 | 客服不了解，其实被隐藏 | "菜单——设置——关于本机——安卓原生设置——关于——内部版本号"连点 7 次；"菜单——设置——关于本机——安卓原生设置——设备偏好设置——开发者选项" |
+| 开发者选项里没有"网络调试"开关 | 厂商没放出开关 | `adb connect IP:5555` 仍然能连上。查看IP路径： "菜单——设置——关于本机——安卓原生设置——网络和互联网"|
+| 新开的终端里 `adb` 提示找不到命令 | 之前用的 `export PATH=...` 只对当时那个终端窗口有效 | 写进 `~/.zshrc`（见上面第 2 步），或每次用 adb 的完整路径 |
+| `adb devices` 为空，报 `no devices/emulators found`，或脚本报 `device '<IP>:5555' not found` | 网络 adb 连接是临时的：盒子重启或待机、Mac 重启或换 Wi-Fi 后会断；盒子 IP 也可能变；盒子重启后 USB 调试可能被关掉 | 盒子开机停在桌面，先 `ping` 盒子 IP，再手动 `adb connect <盒子IP>:5555` 看报错原话：`Connection refused` 多半是 USB 调试被关，`timed out` 是 IP 不对或不在同一个 Wi-Fi；IP 变了要同时改 `tvbreak_server.py` 的 `BOX` 和 `tvbreak.sh` 的 `IP`，并在路由器里给盒子固定 IP |
 | 悬浮窗权限设置页被删，App 提示"没有悬浮窗权限设置页面" | 定制系统删了页面 | `adb shell appops set <包名> SYSTEM_ALERT_WINDOW allow`；重装 App 会重置授权 |
 | 悬浮窗 App 一退到后台，到点没有任何动静 | 日志 `app not allow running background` → `force stop app`：系统在 App 离开前台不到 1 秒就强杀 | 标准白名单（RUN_IN_BACKGROUND、deviceidle whitelist）和前台服务都无效；放弃盒子上后台计时，改由 Mac 用 adb 把 App 拉到前台 |
 | 出现 `Premature EOF` | SDK 下载中途断网 | 自动重试后成功，无需处理 |
@@ -90,13 +92,14 @@ Mac 上运行的小程序，只用 Python 3 标准库，同时做三件事：给
 
 ## 已知限制
 
-- Mac 必须开着，并和盒子在同一个 Wi-Fi；盒子 IP 变了要改脚本
+- Mac 必须开着，并和盒子在同一个 Wi-Fi；盒子 IP 变了要同时改 `tvbreak_server.py` 的 `BOX` 和 `tvbreak.sh` 的 `IP`（建议在路由器里给盒子固定 IP）
+- 盒子重启或待机、Mac 重启或换 Wi-Fi 后，网络 adb 连接会断，需要重新 `adb connect`；盒子重启后 USB 调试还可能被关掉，要重新打开
 - 孩子按遥控器主页键能退出休息画面（系统键，无法屏蔽），遥控器最好由家长保管
 - 每次提醒出现前有约 3 秒黑屏（冷启动）
 - 计时从点“开始”算起，不跟随视频暂停；关掉终端或 Mac 休眠，计时就停止
 - 手机网页控制器没有登录，同一 Wi-Fi 下的人都能打开
 
-## 给 AI 的上下文（下次继续时先读这里）
+## 给 Claude 的上下文（下次继续时先读这里）
 
 - 项目是上面的方案，代码在本仓库；不要再提悬浮窗或盒子后台计时，已证明在这台盒子上走不通
 - 用户习惯分步骤操作，需要解释每个报错的含义

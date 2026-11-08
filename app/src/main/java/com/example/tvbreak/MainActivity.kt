@@ -31,7 +31,7 @@ class MainActivity : Activity() {
         val root = FrameLayout(this)
         root.setBackgroundColor(Color.BLACK)
 
-        val resId = resources.getIdentifier("rest_all", "raw", packageName)
+        val resId = resources.getIdentifier("baby_rest", "raw", packageName)
         if (resId == 0) {
             beep()
         } else {
